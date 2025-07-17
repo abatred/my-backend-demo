@@ -12,6 +12,63 @@ const SECRET_KEY = process.env.JWT_SECRET || "secret_key";
 
 export const signup = async (req: Request, res: Response): Promise<void> => {
   // Fill in the code
+  try {
+    const { name, email, password, termsAccepted } = req.body;
+
+    // 1. Basic Input Validation
+    if (!name || !email || !password || termsAccepted === undefined) {
+      res.status(400).json({ error: "All required fields (name, email, password, termsAccepted) must be provided." });
+      return;
+    }
+
+    if (typeof termsAccepted !== 'boolean' || !termsAccepted) {
+      res.status(400).json({ error: "You must accept the terms and conditions." });
+      return;
+    }
+
+    if (password.length < 8) {
+      res.status(400).json({ error: "Password must be at least 8 characters long." });
+      return;
+    }
+
+    // 2. Check for Duplicate Email
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      res.status(409).json({ error: "User with this email already exists." }); 
+      return;
+    }
+
+    // Hash Password
+    const hashedPassword = await bcrypt.hash(password, 10); 
+
+    // Create and Save New User
+    const newUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      termsAccepted,
+    });
+
+    // Prepare Response User Object 
+    const userResponse = {
+      id: newUser.id, 
+      name: newUser.name,
+      email: newUser.email,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Send Successful Response
+    res.status(201).json({
+      message: "User registered successfully",
+      user: userResponse,
+    });
+
+  } catch (error) {
+    // Log the error for debugging purposes on the server
+    console.error("Error during user signup:", error);
+    // Send a generic error message to the client for security
+    res.status(500).json({ error: "Error registering user" });
+  }
 };
   
 
